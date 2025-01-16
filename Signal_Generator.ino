@@ -1,5 +1,20 @@
-#include "KTMS1201.h"
 #include <EEPROM.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+// Display init
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+//DDS pins
+byte dds_RESET = 6;
+byte dds_DATA  = 7;
+byte dds_LOAD  = 8;
+byte dds_CLOCK = 9;
 
 const unsigned long max_frequency_step = 1000000; //Max Frequency step
 const unsigned long max_frequency = 50000000; //Max Frequency
@@ -13,26 +28,6 @@ unsigned long frequency_step = 1;
 const int EncoderPinCLK = 2; 
 const int EncoderPinDT = 3;  
 const int EncoderPinSW = 4;  
-
-// KTMS1201 Pin definitions
-byte CD =    9;
-byte RESET = 10;
-byte CS =    11;
-byte N_SCK = 12;
-byte SI =    13;
-
-//byte dds_RESET = 11;
-//byte dds_DATA  = 10;
-//byte dds_CLOCK = 12;
-//byte dds_LOAD  = 13;
-
-byte dds_RESET = 5;
-byte dds_DATA  = 6;
-byte dds_LOAD  = 7;
-byte dds_CLOCK = 8;
-
-
-KTMS1201 lcd(N_SCK, SI, CD, RESET, CS);
 
 // Updated by the ISR (Interrupt Service Routine)
 unsigned volatile long frequency = 5000;
@@ -58,25 +53,49 @@ void isr ()  {
 
 void show_frequency()
 {
-  lcd.clear();
-  float display_frequency=frequency;
-  String frequency_string=String(frequency);
-  if (frequency<1000)
-  {
-    lcd.setCursor(0);
-    lcd.print(frequency);
-  }
-  
-  if (frequency>=1000)
-  {
-    lcd.setCursor(0);
-    lcd.print(display_frequency/1000,3);
-  }
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.print(format_frequency(frequency));
+  display.display();
+}
+
+#include <stdio.h>
+#include <string.h>
+
+#include <stdio.h>
+#include <string.h>
+ 
+char* format_frequency(unsigned volatile long frequency) {
+    static char output[50];
+
+    if (frequency >= 1000000) {
+        unsigned long mhz = frequency / 1000000;
+        unsigned long khz = (frequency % 1000000) / 1000;
+        unsigned long hz = frequency % 1000;
+        sprintf(output, "%lu.%03lu.%03lu MHz", mhz, khz, hz);
+    } else if (frequency >= 1000) {
+        unsigned long khz = frequency / 1000;
+        unsigned long hz = frequency % 1000;
+        sprintf(output, "%lu.%03lu kHz", khz, hz);
+    } else {
+        sprintf(output, "%lu Hz", frequency);
+    }
+
+    return output;
 }
 
 void setup() {
   Serial.begin(9600);
-  
+
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
   // Rotary pulses are INPUTs
   pinMode(EncoderPinCLK, INPUT);
   pinMode(EncoderPinDT, INPUT);
@@ -86,10 +105,10 @@ void setup() {
 
   // Attach the routine to service the interrupts
   attachInterrupt(digitalPinToInterrupt(EncoderPinCLK), isr, LOW);
-  lcd.begin();
   setup_dds();
 
   show_frequency();
+  display.display();
   dds(frequency);
   Serial.println("Start");
 }
@@ -110,16 +129,17 @@ void loop() {
     }
     Serial.print("multiplier:");
     Serial.println(frequency_step);
-    lcd.clear();
-    lcd.setCursor(0);
-    lcd.print("STEP:");
-    lcd.setCursor(5);
-    lcd.print(frequency_step);
+    display.clearDisplay();
+    display.setCursor(0,0);
+    display.print("Step:");
+    display.setCursor(0,24);
+    display.print(format_frequency(frequency_step));
+    display.display();
   }
  
   if (frequency != last_frequency) {
     Serial.print(frequency > last_frequency ? "Up  :" : "Down:");
-    Serial.println(frequency);
+    Serial.println(format_frequency(frequency));
     show_frequency();
     dds(frequency);
     last_frequency = frequency ;
