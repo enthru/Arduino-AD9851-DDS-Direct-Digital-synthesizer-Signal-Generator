@@ -1,11 +1,9 @@
-Forked from:
-
-umarsear/Arduino-AD9851-DDS-Direct-Digital-synthesizer-Signal-Generator
-
 Modified for popular OLED display and more readable frequency.
-
+<br>
 Added sweep function:
+<br>
+<br>
+Single click - switch freq. step <br>
+Double click - switch between sweep and static.<br>
+Long press in sweep mode - choose start and stop frequency, choose sweep points.<br>
 
-Single click - switch freq. step
-Double click - switch between sweep and static.
-Long press in sweep mode - choose start and stop frequency, choose sweep points.
